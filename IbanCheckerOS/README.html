@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>IbanCheckerOS — OutSystems ODC External Library</title>
+<!-- Generated from README.md. Do not edit by hand; regenerate after changing README.md. -->
+<style>body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:960px;margin:2em auto;padding:0 1em;line-height:1.5}table{border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 8px;vertical-align:top}code{background:#f4f4f4;padding:0 3px}pre{background:#f4f4f4;padding:8px}</style>
+</head>
+<body>
+<h1 id="ibancheckeros-outsystems-odc-external-library">IbanCheckerOS — OutSystems ODC External Library</h1>
+<blockquote>
+<p>Validate, parse, format and generate IBANs in ODC apps using IbanNet 6.2.1 and the official SWIFT IBAN registry (88 countries).</p>
+</blockquote>
+<p>IBAN inputs are normalized before use (trimmed, whitespace and dashes removed, uppercased). Invalid input never throws: the IBAN actions report problems through <code>ErrorCode</code> and <code>ErrorMessage</code>. See the <a href="../README.md">repository README</a> for the full field-level reference and the error code table.</p>
+<h2 id="actions">Actions</h2>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Description</th>
+<th>Key Inputs</th>
+<th>Key Outputs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ValidateIban</td>
+<td>Validates one IBAN (length, characters, BBAN structure, mod-97) with optional country rules.</td>
+<td>Iban: Text, AllowedCountries: Text List, RejectedCountries: Text List</td>
+<td>Result: IbanValidationResult</td>
+</tr>
+<tr>
+<td>ValidateIbanBulk</td>
+<td>Validates up to 5,000 IBANs; counts always cover the full input.</td>
+<td>Ibans: Text List, AllowedCountries: Text List, RejectedCountries: Text List, OnlyInvalid: Boolean</td>
+<td>Result: IbanBulkValidationResult</td>
+</tr>
+<tr>
+<td>ParseIban</td>
+<td>Returns the formats, country, check digits, BBAN, bank/branch identifiers and SEPA membership of a valid IBAN.</td>
+<td>Iban: Text</td>
+<td>Result: IbanParseResult</td>
+</tr>
+<tr>
+<td>ParseIbanBulk</td>
+<td>Parses up to 5,000 IBANs.</td>
+<td>Ibans: Text List</td>
+<td>Result: IbanBulkParseResult</td>
+</tr>
+<tr>
+<td>FormatIban</td>
+<td>Formats a valid IBAN as Electronic, Print, Obfuscated or Hidden (case-insensitive; empty means Electronic).</td>
+<td>Iban: Text, Format: Text</td>
+<td>Result: IbanFormatResult</td>
+</tr>
+<tr>
+<td>FormatIbanBulk</td>
+<td>Formats up to 5,000 IBANs with one format.</td>
+<td>Ibans: Text List, Format: Text</td>
+<td>Result: IbanBulkFormatResult</td>
+</tr>
+<tr>
+<td>GetCountryInfo</td>
+<td>Returns the SWIFT registry definition of a country; <code>Found</code> is False for unknown codes.</td>
+<td>CountryCode: Text</td>
+<td>Result: IbanCountryResult</td>
+</tr>
+<tr>
+<td>ListSupportedCountries</td>
+<td>Lists all registry countries, ordered by code.</td>
+<td>(none)</td>
+<td>Countries: IbanCountryInfo List</td>
+</tr>
+<tr>
+<td>GenerateTestIbans</td>
+<td><strong>For testing only.</strong> Generates 1 to 1000 random IBANs that pass validation. Not real accounts.</td>
+<td>CountryCode: Text, Count: Integer</td>
+<td>Result: IbanGenerateResult</td>
+</tr>
+</tbody>
+</table>
+<h2 id="structures">Structures</h2>
+<table>
+<thead>
+<tr>
+<th>Structure</th>
+<th>Description</th>
+<th>Fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IbanValidationResult</td>
+<td>Result of ValidateIban.</td>
+<td>IsValid, ErrorCode, ErrorMessage, CountryCode, NormalizedIban</td>
+</tr>
+<tr>
+<td>IbanBulkValidationItem</td>
+<td>One item of ValidateIbanBulk.</td>
+<td>Index, Input, NormalizedIban, IsValid, ErrorCode, ErrorMessage, CountryCode</td>
+</tr>
+<tr>
+<td>IbanBulkValidationResult</td>
+<td>Result of ValidateIbanBulk.</td>
+<td>Success, ErrorCode, ErrorMessage, TotalCount, SuccessCount, FailureCount, Results</td>
+</tr>
+<tr>
+<td>IbanInfo</td>
+<td>Details extracted from a valid IBAN.</td>
+<td>Electronic, Print, Obfuscated, CountryCode, CountryName, CheckDigits, Bban, BankIdentifier, BranchIdentifier, IsSepaMember</td>
+</tr>
+<tr>
+<td>IbanParseResult</td>
+<td>Result of ParseIban.</td>
+<td>Success, ErrorCode, ErrorMessage, NormalizedIban, Info</td>
+</tr>
+<tr>
+<td>IbanBulkParseItem</td>
+<td>One item of ParseIbanBulk.</td>
+<td>Index, Input, NormalizedIban, Success, ErrorCode, ErrorMessage, Info</td>
+</tr>
+<tr>
+<td>IbanBulkParseResult</td>
+<td>Result of ParseIbanBulk.</td>
+<td>Success, ErrorCode, ErrorMessage, TotalCount, SuccessCount, FailureCount, Results</td>
+</tr>
+<tr>
+<td>IbanFormatResult</td>
+<td>Result of FormatIban.</td>
+<td>Success, ErrorCode, ErrorMessage, NormalizedIban, Value</td>
+</tr>
+<tr>
+<td>IbanBulkFormatItem</td>
+<td>One item of FormatIbanBulk.</td>
+<td>Index, Input, NormalizedIban, Success, ErrorCode, ErrorMessage, Value</td>
+</tr>
+<tr>
+<td>IbanBulkFormatResult</td>
+<td>Result of FormatIbanBulk.</td>
+<td>Success, ErrorCode, ErrorMessage, TotalCount, SuccessCount, FailureCount, Results</td>
+</tr>
+<tr>
+<td>IbanCountryInfo</td>
+<td>IBAN definition of a country.</td>
+<td>Code, EnglishName, IbanLength, IbanExample, BbanExample, IsSepaMember, HasBankIdentifier, HasBranchIdentifier, EffectiveDate</td>
+</tr>
+<tr>
+<td>IbanCountryResult</td>
+<td>Result of GetCountryInfo.</td>
+<td>Found, Country</td>
+</tr>
+<tr>
+<td>IbanGenerateResult</td>
+<td>Result of GenerateTestIbans.</td>
+<td>Success, ErrorCode, ErrorMessage, Ibans</td>
+</tr>
+</tbody>
+</table>
+<h2 id="installation">Installation</h2>
+<ol>
+<li>Build: <code>./generate_upload_package.sh</code> (macOS/Linux) or <code>./generate_upload_package.ps1</code> (Windows). Both run <code>dotnet publish -c Release -r linux-x64 --self-contained false</code> and zip the <code>publish/</code> output into <code>IbanCheckerOS_Asset.zip</code>.</li>
+<li>Alternatively, download <code>IbanCheckerOS_vX.Y.Z.zip</code> from the GitHub release (built by <code>.github/workflows/release.yml</code> on <code>ubuntu-26.04</code>).</li>
+<li>Upload the ZIP in ODC Portal &gt; External Libraries &gt; Upload new library.</li>
+</ol>
+<h2 id="local-development">Local Development</h2>
+<p>Requires the .NET 10 SDK.</p>
+<pre><code class="language-bash">dotnet build IbanCheckerOS.sln
+dotnet test ../IbanCheckerOS.UnitTests/IbanCheckerOS.UnitTests.csproj
+</code></pre>
+<h2 id="dependencies">Dependencies</h2>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Version</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IbanNet</td>
+<td>6.2.1</td>
+<td>IBAN logic and the embedded SWIFT IBAN registry.</td>
+</tr>
+<tr>
+<td>OutSystems.ExternalLibraries.SDK</td>
+<td>1.7.0</td>
+<td>ODC External Library attributes.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="telemetry">Telemetry</h2>
+<p>None. The library does not log or store IBANs.</p>
+<h2 id="constraints">Constraints</h2>
+<ul>
+<li>Stateless: each call is independent. Static caches only speed up warm Lambda invocations and never change results.</li>
+<li>Bulk actions accept at most 5,000 items per call (call-level <code>TooManyItems</code>), to stay within the ODC 5.5 MB payload limit and ~95 s timeout.</li>
+<li>GenerateTestIbans accepts a Count from 1 to 1000 (<code>InvalidCount</code> otherwise).</li>
+<li>Validation checks format and checksum only; it does not confirm that the account exists.</li>
+<li>The SWIFT registry is embedded (no network calls); registry updates require a new library version.</li>
+</ul>
+</body>
+</html>

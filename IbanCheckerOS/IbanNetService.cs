@@ -15,12 +15,21 @@ namespace IbanCheckerOS
     /// All actions are stateless; expensive objects (registry, default validator, parser,
     /// country list and rule-specific validators) are cached in static fields.
     /// </summary>
+    /// <remarks>
+    /// Static caches survive between warm Lambda invocations but never change results: the registry is
+    /// read-only, and the rule-specific validator cache is keyed by the normalized allowed/rejected country
+    /// lists and cleared when it reaches 128 entries. <c>IbanGenerator</c> is not thread-safe, so a new one
+    /// is created per <see cref="GenerateTestIbans"/> call. No public action throws; failures are reported
+    /// through the result structures (see <see cref="IbanErrorCodes"/>).
+    /// </remarks>
     public class IbanNetService : IIbanNet
     {
         /// <summary>Maximum number of items accepted by the bulk actions.</summary>
+        /// <remarks>Larger lists return <see cref="IbanErrorCodes.TooManyItems"/>. Chosen to stay within the ODC 5.5 MB payload limit.</remarks>
         public const int MaxBulkItems = 5000;
 
         /// <summary>Maximum number of IBANs that <see cref="GenerateTestIbans"/> can produce per call.</summary>
+        /// <remarks>A <c>Count</c> outside 1..1000 returns <see cref="IbanErrorCodes.InvalidCount"/>.</remarks>
         public const int MaxGeneratedIbans = 1000;
 
         private const int MaxCachedValidators = 128;
@@ -52,13 +61,7 @@ namespace IbanCheckerOS
 
         #region ValidateIban
 
-        /// <summary>
-        /// Validates a single IBAN, optionally restricting the accepted countries.
-        /// </summary>
-        /// <param name="Iban">The IBAN to validate.</param>
-        /// <param name="AllowedCountries">Optional accepted country codes.</param>
-        /// <param name="RejectedCountries">Optional rejected country codes.</param>
-        /// <param name="Result">The validation result.</param>
+        /// <inheritdoc />
         public void ValidateIban(string Iban, List<string> AllowedCountries, List<string> RejectedCountries, out IbanValidationResult Result)
         {
             Result = new IbanValidationResult();
@@ -80,14 +83,7 @@ namespace IbanCheckerOS
             }
         }
 
-        /// <summary>
-        /// Validates a list of IBANs in one call.
-        /// </summary>
-        /// <param name="Ibans">The IBANs to validate.</param>
-        /// <param name="AllowedCountries">Optional accepted country codes.</param>
-        /// <param name="RejectedCountries">Optional rejected country codes.</param>
-        /// <param name="OnlyInvalid">When true, only invalid items are returned.</param>
-        /// <param name="Result">The bulk validation result.</param>
+        /// <inheritdoc />
         public void ValidateIbanBulk(List<string> Ibans, List<string> AllowedCountries, List<string> RejectedCountries, bool OnlyInvalid, out IbanBulkValidationResult Result)
         {
             Result = new IbanBulkValidationResult();
@@ -164,21 +160,13 @@ namespace IbanCheckerOS
 
         #region ParseIban
 
-        /// <summary>
-        /// Parses a single IBAN into its components.
-        /// </summary>
-        /// <param name="Iban">The IBAN to parse.</param>
-        /// <param name="Result">The parse result.</param>
+        /// <inheritdoc />
         public void ParseIban(string Iban, out IbanParseResult Result)
         {
             Result = Parse(Iban);
         }
 
-        /// <summary>
-        /// Parses a list of IBANs in one call.
-        /// </summary>
-        /// <param name="Ibans">The IBANs to parse.</param>
-        /// <param name="Result">The bulk parse result.</param>
+        /// <inheritdoc />
         public void ParseIbanBulk(List<string> Ibans, out IbanBulkParseResult Result)
         {
             Result = new IbanBulkParseResult();
@@ -226,12 +214,7 @@ namespace IbanCheckerOS
 
         #region FormatIban
 
-        /// <summary>
-        /// Formats a single IBAN.
-        /// </summary>
-        /// <param name="Iban">The IBAN to format.</param>
-        /// <param name="Format">Electronic, Print, Obfuscated or Hidden.</param>
-        /// <param name="Result">The format result.</param>
+        /// <inheritdoc />
         public void FormatIban(string Iban, string Format, out IbanFormatResult Result)
         {
             if (!TryGetFormat(Format, out var format))
@@ -248,12 +231,7 @@ namespace IbanCheckerOS
             Result = FormatSingle(Iban, format);
         }
 
-        /// <summary>
-        /// Formats a list of IBANs in one call.
-        /// </summary>
-        /// <param name="Ibans">The IBANs to format.</param>
-        /// <param name="Format">Electronic, Print, Obfuscated or Hidden.</param>
-        /// <param name="Result">The bulk format result.</param>
+        /// <inheritdoc />
         public void FormatIbanBulk(List<string> Ibans, string Format, out IbanBulkFormatResult Result)
         {
             Result = new IbanBulkFormatResult();
@@ -309,11 +287,7 @@ namespace IbanCheckerOS
 
         #region Countries
 
-        /// <summary>
-        /// Gets the IBAN definition of a country.
-        /// </summary>
-        /// <param name="CountryCode">ISO 3166-1 alpha-2 country code.</param>
-        /// <param name="Result">The lookup result.</param>
+        /// <inheritdoc />
         public void GetCountryInfo(string CountryCode, out IbanCountryResult Result)
         {
             Result = new IbanCountryResult();
@@ -330,10 +304,7 @@ namespace IbanCheckerOS
             }
         }
 
-        /// <summary>
-        /// Lists every country in the SWIFT IBAN registry, ordered by code.
-        /// </summary>
-        /// <param name="Countries">The supported countries.</param>
+        /// <inheritdoc />
         public void ListSupportedCountries(out List<IbanCountryInfo> Countries)
         {
             Countries = new List<IbanCountryInfo>(SupportedCountries.Value);
@@ -343,12 +314,7 @@ namespace IbanCheckerOS
 
         #region GenerateTestIbans
 
-        /// <summary>
-        /// Generates random IBANs that pass validation. For testing only.
-        /// </summary>
-        /// <param name="CountryCode">ISO 3166-1 alpha-2 country code.</param>
-        /// <param name="Count">Number of IBANs to generate (1 to 1000).</param>
-        /// <param name="Result">The generation result.</param>
+        /// <inheritdoc />
         public void GenerateTestIbans(string CountryCode, int Count, out IbanGenerateResult Result)
         {
             Result = new IbanGenerateResult();

@@ -5,27 +5,127 @@ OutSystems Developer Cloud (ODC) External Library that validates, parses, format
 
 Two rules apply to every action:
 
-- **Input normalization:** inputs are trimmed, all whitespace and dash characters (`-`, Unicode dashes) are removed, and the result is uppercased. The normalized value is always returned as `NormalizedIban`.
-- **No exceptions for bad data:** invalid, null or empty inputs never throw. Every action returns a result structure with `ErrorCode` and `ErrorMessage`.
+- **Input normalization:** IBAN inputs are trimmed, all whitespace and dash characters (`-`, Unicode dashes) are removed, and the result is uppercased. The validate, parse and format results return the normalized value as `NormalizedIban`. Country codes (`CountryCode`, `AllowedCountries`, `RejectedCountries`) are trimmed and uppercased.
+- **No exceptions for bad data:** invalid, null or empty inputs never throw. The validate, parse, format and generate actions return a result structure with `ErrorCode` and `ErrorMessage`. `GetCountryInfo` reports an unknown country with `Found` = False, and `ListSupportedCountries` has no failure mode.
 
-## Error codes
+## Actions
 
-| ErrorCode | Meaning |
-|-----------|---------|
-| *(empty)* | No error. |
-| `Empty` | The input was null, empty, or only whitespace and dashes. |
-| `InvalidLength` | The length does not match the country's IBAN length. |
-| `IllegalCharacters` | The input contains characters other than A-Z and 0-9, including in the country-code position. |
-| `InvalidStructure` | The input does not match the country's BBAN pattern, or the check digits are not numeric. |
-| `InvalidCheckDigits` | The mod-97 check digits are wrong. |
-| `UnknownCountry` | The country code is not in the SWIFT IBAN registry. |
-| `CountryNotAccepted` | The IBAN is valid, but the AllowedCountries/RejectedCountries rules exclude its country. |
-| `InvalidFormat` | The format is not Electronic, Print, Obfuscated or Hidden (FormatIban and FormatIbanBulk). |
-| `InvalidCount` | The count is outside 1..1000 (GenerateTestIbans). |
-| `TooManyItems` | A bulk call received more than 5,000 items. This is a call-level error. |
-| `UnexpectedError` | An unexpected internal error. It should not happen. |
+| Action | Description | Key Inputs | Key Outputs |
+|--------|-------------|-----------|-------------|
+| ValidateIban | Validates one IBAN, with optional country rules. | Iban, AllowedCountries, RejectedCountries | Result (IbanValidationResult) |
+| ValidateIbanBulk | Validates up to 5,000 IBANs in one call. | Ibans, AllowedCountries, RejectedCountries, OnlyInvalid | Result (IbanBulkValidationResult) |
+| ParseIban | Splits a valid IBAN into its components. | Iban | Result (IbanParseResult) |
+| ParseIbanBulk | Parses up to 5,000 IBANs in one call. | Ibans | Result (IbanBulkParseResult) |
+| FormatIban | Formats a valid IBAN as Electronic, Print, Obfuscated or Hidden. | Iban, Format | Result (IbanFormatResult) |
+| FormatIbanBulk | Formats up to 5,000 IBANs with one format. | Ibans, Format | Result (IbanBulkFormatResult) |
+| GetCountryInfo | Returns the registry definition of one country. | CountryCode | Result (IbanCountryResult) |
+| ListSupportedCountries | Lists all registry countries, ordered by code. | (none) | Countries (IbanCountryInfo List) |
+| GenerateTestIbans | **For testing only.** Generates random IBANs that pass validation. | CountryCode, Count | Result (IbanGenerateResult) |
+
+### ValidateIban
+
+Validates one IBAN: length, characters, BBAN structure and mod-97 check digits. It can also apply country rules.
+
+| Direction | Parameter | Type | Description |
+|-----------|-----------|------|-------------|
+| Input | Iban | Text | The IBAN to validate. |
+| Input | AllowedCountries | Text List | Optional. Only IBANs from these countries are accepted. Empty accepts all countries. |
+| Input | RejectedCountries | Text List | Optional. IBANs from these countries are rejected. This applies on top of AllowedCountries, so a rejection always wins. |
+| Output | Result | IbanValidationResult | The validation result. |
+
+### ValidateIbanBulk
+
+Validates up to 5,000 IBANs in one call.
+
+| Direction | Parameter | Type | Description |
+|-----------|-----------|------|-------------|
+| Input | Ibans | Text List | The IBANs to validate (max 5,000). |
+| Input | AllowedCountries | Text List | Optional. Same as in ValidateIban. |
+| Input | RejectedCountries | Text List | Optional. Same as in ValidateIban. |
+| Input | OnlyInvalid | Boolean | When True, Results contains only the invalid items. The counts still cover the full input. |
+| Output | Result | IbanBulkValidationResult | Counts and per-item results. |
+
+### ParseIban
+
+Validates the IBAN (without country rules) and, if it is valid, returns its components in `Info`.
+
+| Direction | Parameter | Type | Description |
+|-----------|-----------|------|-------------|
+| Input | Iban | Text | The IBAN to parse. |
+| Output | Result | IbanParseResult | Success, error information, NormalizedIban and Info. |
+
+### ParseIbanBulk
+
+| Direction | Parameter | Type | Description |
+|-----------|-----------|------|-------------|
+| Input | Ibans | Text List | The IBANs to parse (max 5,000). |
+| Output | Result | IbanBulkParseResult | Counts and per-item results. |
+
+### FormatIban
+
+| Direction | Parameter | Type | Description |
+|-----------|-----------|------|-------------|
+| Input | Iban | Text | The IBAN to format. |
+| Input | Format | Text | `Electronic`, `Print`, `Obfuscated` or `Hidden`. Case-insensitive. Empty means `Electronic`. |
+| Output | Result | IbanFormatResult | The formatted `Value`, or error information. |
+
+An unknown `Format` returns `InvalidFormat` before the IBAN is checked. Example output for `NL91ABNA0417164300`:
+
+| Format | Output |
+|--------|--------|
+| Electronic | `NL91ABNA0417164300` |
+| Print | `NL91 ABNA 0417 1643 00` |
+| Obfuscated | `XXXXXXXXXXXXXX4300` |
+| Hidden | `****` |
+
+### FormatIbanBulk
+
+| Direction | Parameter | Type | Description |
+|-----------|-----------|------|-------------|
+| Input | Ibans | Text List | The IBANs to format (max 5,000). |
+| Input | Format | Text | Same as in FormatIban. An invalid format is a call-level `InvalidFormat` error. |
+| Output | Result | IbanBulkFormatResult | Counts and per-item results. |
+
+### GetCountryInfo
+
+| Direction | Parameter | Type | Description |
+|-----------|-----------|------|-------------|
+| Input | CountryCode | Text | ISO 3166-1 alpha-2 code. Case-insensitive and trimmed. |
+| Output | Result | IbanCountryResult | Found and Country. Found is False for empty, unknown or non-registry codes. |
+
+### ListSupportedCountries
+
+| Direction | Parameter | Type | Description |
+|-----------|-----------|------|-------------|
+| Output | Countries | IbanCountryInfo List | All countries in the SWIFT registry, ordered by code. |
+
+### GenerateTestIbans
+
+**For testing only.** Generates random IBANs that pass validation for a country. They are not real bank accounts and must never be used for payments.
+
+| Direction | Parameter | Type | Description |
+|-----------|-----------|------|-------------|
+| Input | CountryCode | Text | ISO 3166-1 alpha-2 code. Case-insensitive and trimmed. |
+| Input | Count | Integer | Number of IBANs to generate (1 to 1000). |
+| Output | Result | IbanGenerateResult | The generated IBANs, or error information. |
 
 ## Structures
+
+| Structure | Description | Fields |
+|-----------|-------------|--------|
+| IbanValidationResult | Result of ValidateIban. | IsValid, ErrorCode, ErrorMessage, CountryCode, NormalizedIban |
+| IbanBulkValidationItem | One item of a bulk validation. | Index, Input, NormalizedIban, IsValid, ErrorCode, ErrorMessage, CountryCode |
+| IbanBulkValidationResult | Result of ValidateIbanBulk. | Success, ErrorCode, ErrorMessage, TotalCount, SuccessCount, FailureCount, Results |
+| IbanInfo | Details extracted from a valid IBAN. | Electronic, Print, Obfuscated, CountryCode, CountryName, CheckDigits, Bban, BankIdentifier, BranchIdentifier, IsSepaMember |
+| IbanParseResult | Result of ParseIban. | Success, ErrorCode, ErrorMessage, NormalizedIban, Info |
+| IbanBulkParseItem | One item of a bulk parse. | Index, Input, NormalizedIban, Success, ErrorCode, ErrorMessage, Info |
+| IbanBulkParseResult | Result of ParseIbanBulk. | Success, ErrorCode, ErrorMessage, TotalCount, SuccessCount, FailureCount, Results |
+| IbanFormatResult | Result of FormatIban. | Success, ErrorCode, ErrorMessage, NormalizedIban, Value |
+| IbanBulkFormatItem | One item of a bulk format. | Index, Input, NormalizedIban, Success, ErrorCode, ErrorMessage, Value |
+| IbanBulkFormatResult | Result of FormatIbanBulk. | Success, ErrorCode, ErrorMessage, TotalCount, SuccessCount, FailureCount, Results |
+| IbanCountryInfo | IBAN definition of a country. | Code, EnglishName, IbanLength, IbanExample, BbanExample, IsSepaMember, HasBankIdentifier, HasBranchIdentifier, EffectiveDate |
+| IbanCountryResult | Result of GetCountryInfo. | Found, Country |
+| IbanGenerateResult | Result of GenerateTestIbans. | Success, ErrorCode, ErrorMessage, Ibans |
 
 ### IbanValidationResult
 
@@ -42,7 +142,7 @@ Two rules apply to every action:
 | Field | Type | Description |
 |-------|------|-------------|
 | Index | Integer | Zero-based position in the input list. |
-| Input | Text | The original input value. |
+| Input | Text | The original input value. A null item becomes an empty string. |
 | NormalizedIban | Text | The normalized input. |
 | IsValid | Boolean | Same meaning as in IbanValidationResult. |
 | ErrorCode | Text | Same meaning as in IbanValidationResult. |
@@ -56,10 +156,10 @@ Two rules apply to every action:
 | Success | Boolean | False only when the whole call is rejected (`TooManyItems`, or `InvalidFormat` for format calls). Invalid items do not set it to False. |
 | ErrorCode | Text | Call-level error code. Empty on success. |
 | ErrorMessage | Text | Call-level error message. Empty on success. |
-| TotalCount | Integer | Number of input items. |
+| TotalCount | Integer | Number of input items. Set even when the call is rejected. |
 | SuccessCount | Integer | Number of items that succeeded, counted over the full input. |
 | FailureCount | Integer | Number of items that failed, counted over the full input. |
-| Results | List | IbanBulkValidationItem, IbanBulkParseItem or IbanBulkFormatItem, in input order. |
+| Results | List | IbanBulkValidationItem, IbanBulkParseItem or IbanBulkFormatItem, in input order. Empty when the call is rejected. |
 
 ### IbanInfo
 
@@ -78,11 +178,27 @@ Two rules apply to every action:
 
 ### IbanParseResult, IbanBulkParseItem
 
-These contain `Success`, `ErrorCode`, `ErrorMessage`, `NormalizedIban` and `Info` (IbanInfo). The bulk item also has `Index` and `Input`.
+| Field | Type | Description |
+|-------|------|-------------|
+| Index | Integer | Bulk item only. Zero-based position in the input list. |
+| Input | Text | Bulk item only. The original input value. |
+| NormalizedIban | Text | The normalized input. |
+| Success | Boolean | True when the IBAN is valid and was parsed. |
+| ErrorCode | Text | Empty on success. Same codes as ValidateIban, except `CountryNotAccepted`. |
+| ErrorMessage | Text | English error message. Empty on success. |
+| Info | IbanInfo | The parsed details. Empty when Success is False. |
 
 ### IbanFormatResult, IbanBulkFormatItem
 
-These contain `Success`, `ErrorCode`, `ErrorMessage`, `NormalizedIban` and `Value` (the formatted IBAN). The bulk item also has `Index` and `Input`.
+| Field | Type | Description |
+|-------|------|-------------|
+| Index | Integer | Bulk item only. Zero-based position in the input list. |
+| Input | Text | Bulk item only. The original input value. |
+| NormalizedIban | Text | The normalized input. |
+| Success | Boolean | True when the IBAN is valid and was formatted. |
+| ErrorCode | Text | Empty on success. `InvalidFormat` (single action only), otherwise the ValidateIban codes except `CountryNotAccepted`. |
+| ErrorMessage | Text | English error message. Empty on success. |
+| Value | Text | The formatted IBAN. Empty on failure. |
 
 ### IbanCountryInfo
 
@@ -110,107 +226,47 @@ These contain `Success`, `ErrorCode`, `ErrorMessage`, `NormalizedIban` and `Valu
 | Field | Type | Description |
 |-------|------|-------------|
 | Success | Boolean | True when the IBANs were generated. |
-| ErrorCode | Text | `Empty`, `UnknownCountry`, `InvalidCount` or `UnexpectedError`. |
-| ErrorMessage | Text | Error message. |
+| ErrorCode | Text | `Empty`, `UnknownCountry`, `InvalidCount` or `UnexpectedError`. Empty on success. |
+| ErrorMessage | Text | Error message. Empty on success. |
 | Ibans | Text List | The generated IBANs, in electronic format. **For testing only.** |
 
-## Actions
+## Error codes
 
-### ValidateIban
-
-Validates one IBAN: length, characters, BBAN structure and mod-97 check digits. It can also apply country rules.
-
-| Direction | Parameter | Type | Description |
-|-----------|-----------|------|-------------|
-| Input | Iban | Text | The IBAN to validate. |
-| Input | AllowedCountries | Text List | Optional. Only IBANs from these countries are accepted. Empty accepts all countries. |
-| Input | RejectedCountries | Text List | Optional. IBANs from these countries are rejected. This applies on top of AllowedCountries, so a rejection always wins. |
-| Output | Result | IbanValidationResult | The validation result. |
-
-### ValidateIbanBulk
-
-Validates up to 5,000 IBANs in one call.
-
-| Direction | Parameter | Type | Description |
-|-----------|-----------|------|-------------|
-| Input | Ibans | Text List | The IBANs to validate (max 5,000). |
-| Input | AllowedCountries | Text List | Optional. Same as in ValidateIban. |
-| Input | RejectedCountries | Text List | Optional. Same as in ValidateIban. |
-| Input | OnlyInvalid | Boolean | When True, Results contains only the invalid items. The counts still cover the full input. |
-| Output | Result | IbanBulkValidationResult | Counts and per-item results. |
-
-### ParseIban
-
-| Direction | Parameter | Type | Description |
-|-----------|-----------|------|-------------|
-| Input | Iban | Text | The IBAN to parse. |
-| Output | Result | IbanParseResult | Success, error information, NormalizedIban and Info. |
-
-### ParseIbanBulk
-
-| Direction | Parameter | Type | Description |
-|-----------|-----------|------|-------------|
-| Input | Ibans | Text List | The IBANs to parse (max 5,000). |
-| Output | Result | IbanBulkParseResult | Counts and per-item results. |
-
-### FormatIban
-
-| Direction | Parameter | Type | Description |
-|-----------|-----------|------|-------------|
-| Input | Iban | Text | The IBAN to format. |
-| Input | Format | Text | `Electronic`, `Print`, `Obfuscated` or `Hidden`. Case-insensitive. Empty means `Electronic`. |
-| Output | Result | IbanFormatResult | The formatted `Value`, or error information. |
-
-Example output for `NL91ABNA0417164300`:
-
-| Format | Output |
-|--------|--------|
-| Electronic | `NL91ABNA0417164300` |
-| Print | `NL91 ABNA 0417 1643 00` |
-| Obfuscated | `XXXXXXXXXXXXXX4300` |
-| Hidden | `****` |
-
-### FormatIbanBulk
-
-| Direction | Parameter | Type | Description |
-|-----------|-----------|------|-------------|
-| Input | Ibans | Text List | The IBANs to format (max 5,000). |
-| Input | Format | Text | Same as in FormatIban. An invalid format is a call-level `InvalidFormat` error. |
-| Output | Result | IbanBulkFormatResult | Counts and per-item results. |
-
-### GetCountryInfo
-
-| Direction | Parameter | Type | Description |
-|-----------|-----------|------|-------------|
-| Input | CountryCode | Text | ISO 3166-1 alpha-2 code. Case-insensitive and trimmed. |
-| Output | Result | IbanCountryResult | Found and Country. |
-
-### ListSupportedCountries
-
-| Direction | Parameter | Type | Description |
-|-----------|-----------|------|-------------|
-| Output | Countries | IbanCountryInfo List | All countries in the SWIFT registry, ordered by code. |
-
-### GenerateTestIbans
-
-**For testing only.** Generates random IBANs that pass validation for a country. They are not real bank accounts and must never be used for payments.
-
-| Direction | Parameter | Type | Description |
-|-----------|-----------|------|-------------|
-| Input | CountryCode | Text | ISO 3166-1 alpha-2 code. |
-| Input | Count | Integer | Number of IBANs to generate (1 to 1000). |
-| Output | Result | IbanGenerateResult | The generated IBANs, or error information. |
+| ErrorCode | Meaning |
+|-----------|---------|
+| *(empty)* | No error. |
+| `Empty` | The input was null, empty, or only whitespace and dashes. |
+| `InvalidLength` | The length does not match the country's IBAN length. |
+| `IllegalCharacters` | The input contains characters other than A-Z and 0-9, including in the country-code position. |
+| `InvalidStructure` | The input does not match the country's BBAN pattern, or the check digits are not numeric. |
+| `InvalidCheckDigits` | The mod-97 check digits are wrong. |
+| `UnknownCountry` | The country code is not in the SWIFT IBAN registry. |
+| `CountryNotAccepted` | The IBAN is valid, but the AllowedCountries/RejectedCountries rules exclude its country (ValidateIban and ValidateIbanBulk only). |
+| `InvalidFormat` | The format is not Electronic, Print, Obfuscated or Hidden (FormatIban and FormatIbanBulk). |
+| `InvalidCount` | The count is outside 1..1000 (GenerateTestIbans). |
+| `TooManyItems` | A bulk call received more than 5,000 items. This is a call-level error. |
+| `UnexpectedError` | An unexpected internal error. It should not happen. |
 
 ## Usage Notes
 
 - Store IBANs in the `NormalizedIban` (electronic) form, and show them to users in `Print` or `Obfuscated` form.
 - `Index` in bulk results is zero-based, so it matches ODC list indexes.
 - Error messages are fixed English text and do not depend on the culture. Branch on `ErrorCode` in your logic, not on `ErrorMessage`.
-- Bulk calls are capped at 5,000 items to stay within ODC's 5.5 MB payload limit and ~95 s timeout. Split larger lists into batches.
 - `CountryNotAccepted` is reported only for IBANs that are otherwise valid. Structural errors are reported first.
-- Validation checks the format and the checksum only. It does not confirm that the bank account exists.
 
-## Build and Package
+## Installation
+
+1. Get the upload package, either:
+   - download `IbanCheckerOS_vX.Y.Z.zip` from the GitHub release, or
+   - build it locally (see below), which produces `IbanCheckerOS/IbanCheckerOS_Asset.zip`.
+2. In ODC Portal, go to **External Libraries** > **Upload new library** and upload the ZIP.
+3. Publish the library, then add **IbanCheckerOS** as a dependency of your app in ODC Studio.
+
+The package contains the output of `dotnet publish -c Release -r linux-x64 --self-contained false`.
+
+## Local Development
+
+Requires the .NET 10 SDK.
 
 ```bash
 cd IbanCheckerOS
@@ -219,9 +275,34 @@ dotnet test ../IbanCheckerOS.UnitTests/IbanCheckerOS.UnitTests.csproj
 ./generate_upload_package.sh      # or generate_upload_package.ps1 on Windows
 ```
 
-This produces `IbanCheckerOS/IbanCheckerOS_Asset.zip`, which contains the contents of `dotnet publish -c Release -r linux-x64 --self-contained false`. To upload it, go to ODC Portal > External Libraries > Upload new library.
+## Continuous Integration
 
-Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yml`, which tests the code, packages it, and creates a GitHub release with `IbanCheckerOS_vX.Y.Z.zip`.
+| Workflow | Trigger | What it does |
+|----------|---------|--------------|
+| `.github/workflows/test.yml` | Push or pull request to `main`/`master`, manual run | Restores, runs the unit tests with coverage, uploads `coverage-report` (kept 30 days). |
+| `.github/workflows/release.yml` | Push of a `vX.Y.Z` tag | Runs the tests, publishes for linux-x64, and creates a GitHub release with `IbanCheckerOS_vX.Y.Z.zip`. |
+
+Both workflows run on `ubuntu-26.04` with .NET `10.0.x` and use `actions/checkout@v7`, `actions/setup-dotnet@v6` and `irongut/CodeCoverageSummary@v1.3.0`. The test workflow also uses `actions/upload-artifact@v7`, and the release workflow uses `softprops/action-gh-release@v3`.
+
+## Dependencies
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| IbanNet | 6.2.1 | IBAN validation, parsing, formatting, generation and the SWIFT IBAN registry. |
+| OutSystems.ExternalLibraries.SDK | 1.7.0 | ODC attributes (`OSInterface`, `OSAction`, `OSStructure`, ...). |
+| xunit.v3 | 3.2.2 | Unit tests (test project only). |
+| Microsoft.NET.Test.Sdk | 18.12.0 | Test host (test project only). |
+| coverlet.collector | 10.1.0 | Code coverage in CI (test project only). |
+
+## Constraints
+
+- **Stateless:** each call is independent. Static caches (registry, validators, country list) only speed up warm invocations and never change results.
+- **Bulk cap:** bulk actions accept at most 5,000 items per call (call-level `TooManyItems`). This keeps calls within ODC's 5.5 MB payload limit and ~95 s timeout. Split larger lists into batches.
+- **Generation cap:** GenerateTestIbans produces 1 to 1000 IBANs per call.
+- **Format and checksum only:** validation does not confirm that the bank account exists or is open.
+- **Offline registry:** the SWIFT registry is embedded in IbanNet 6.2.1 (88 countries). No external calls are made; registry updates require a new library version.
+- **Test IBANs:** GenerateTestIbans output is not a real bank account and must never be used for payments.
+- **Telemetry:** none. The library does not log or store any IBAN.
 
 ## Technical Details
 
